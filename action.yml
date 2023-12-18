@@ -1,0 +1,38 @@
+name: Notify Slack Based on Previous Run Status
+inputs:
+  github_token:
+    required: true
+  slack_webhook_url:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get previous workflow status
+      uses: db82407/last-workflow-status@master
+      id: last_status
+      with:
+        github_token: ${{ inputs.github_token }}
+
+    - name: Set notify_when
+      shell: bash
+      run: |
+        if [[ "${{ steps.last_status.outputs.last_status }}" == "success" ]]; then
+          NOTIFY_WHEN="failure"
+        else
+          NOTIFY_WHEN="success,failure,cancelled,warnings,skipped"
+        fi
+        echo "NOTIFY_WHEN=$NOTIFY_WHEN" >> $GITHUB_ENV
+
+    - name: Notify Slack based on previous run status
+      uses: ravsamhq/notify-slack-action@v2
+      with:
+        status: ${{ job.status }}
+        notification_title: "*Job {status_message}*: <{run_url}|{job}>"
+        notify_when: ${{ env.NOTIFY_WHEN }}
+        icon_success: ":white_check_mark:"
+        footer: ""
+      env:
+        SLACK_WEBHOOK_URL: ${{ inputs.slack_webhook_url }}
+
+#
